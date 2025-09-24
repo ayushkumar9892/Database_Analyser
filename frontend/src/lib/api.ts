@@ -1,8 +1,18 @@
 import axios from 'axios'
 
-const api = axios.create({
-  baseURL: '/api',
-})
+const base = '/api'
+const api = axios.create({ baseURL: base })
+
+export async function apiHealth() {
+  try {
+    const { data } = await api.get('/health')
+    return data
+  } catch (e) {
+    // Try fallback path when FastAPI is unavailable and fallback server is running on root
+    const { data } = await axios.get('/health')
+    return data
+  }
+}
 
 export type ConnectPayload = {
   db_type: 'postgresql' | 'mysql' | 'sqlserver'

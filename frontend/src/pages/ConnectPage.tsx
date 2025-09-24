@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Alert, Box, Button, Card, CardContent, Grid, MenuItem, TextField, Typography } from '@mui/material'
-import { apiConnect, type ConnectPayload } from '../lib/api'
+import { apiConnect, apiHealth, type ConnectPayload } from '../lib/api'
 
 export default function ConnectPage() {
   const [dbType, setDbType] = useState<ConnectPayload['db_type']>('postgresql')
@@ -26,6 +26,8 @@ export default function ConnectPage() {
     setMessage(null)
     setError(null)
     try {
+      // quick health check for backend
+      await apiHealth()
       const res = await apiConnect(form)
       setMessage(`Connected to ${res.db_type.toUpperCase()} successfully`)
     } catch (err: any) {

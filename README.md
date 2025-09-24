@@ -24,7 +24,11 @@ This project wraps your existing `database_analyser.py` backend logic with a Fas
 
 3. Run the API server:
    ```bash
+   # Preferred (FastAPI available):
    uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+
+   # If you cannot install FastAPI in this environment, use fallback:
+   python3 server.py  # starts a minimal /health endpoint for connectivity checks
    ```
 
 The API exposes endpoints such as `/connect`, `/overview`, `/tables`, `/views`, `/table/details`, `/table/indexes`, etc.
@@ -42,7 +46,7 @@ The API exposes endpoints such as `/connect`, `/overview`, `/tables`, `/views`, 
    npm run dev
    ```
 
-The frontend is configured to proxy `/api` requests to `http://localhost:8000`.
+The frontend proxies `/api` to `http://localhost:8000`. It also checks `/health` directly if FastAPI isn't available.
 
 ## 3) Usage flow
 

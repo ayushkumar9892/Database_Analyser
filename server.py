@@ -1,20 +1,32 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
+try:
+	from fastapi import FastAPI, HTTPException
+	from fastapi.middleware.cors import CORSMiddleware
+	from pydantic import BaseModel
+except Exception:  # pragma: no cover
+	FastAPI = None  # type: ignore
+	HTTPException = Exception  # type: ignore
+	class BaseModel:  # type: ignore
+		pass
 
 # Import backend class
 from database_analyser import DatabaseAnalyzer
 
-app = FastAPI(title="Database Analyzer API", version="1.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if FastAPI:
+	app = FastAPI(title="Database Analyzer API", version="1.0.0")
+	# CORS for dev
+	app.add_middleware(
+		CORSMiddleware,
+		allow_origins=["*"],
+		allow_credentials=True,
+		allow_methods=["*"],
+		allow_headers=["*"],
+	)
+    @app.get("/health")
+    def health() -> Dict[str, Any]:
+        return {"status": "ok", "framework": "fastapi"}
+else:
+	app = None  # type: ignore
 
 
 class ConnectRequest(BaseModel):
@@ -46,7 +58,8 @@ class ViewRef(BaseModel):
 analyzer: Optional[DatabaseAnalyzer] = None
 
 
-@app.post("/connect")
+if FastAPI:
+	@app.post("/connect")
 def connect(req: ConnectRequest) -> Dict[str, Any]:
     global analyzer
     analyzer = DatabaseAnalyzer()
@@ -103,7 +116,8 @@ def ensure_connected():
         raise HTTPException(status_code=400, detail="Not connected. Call /connect first.")
 
 
-@app.get("/overview")
+if FastAPI:
+	@app.get("/overview")
 def overview() -> Dict[str, Any]:
     ensure_connected()
     # Replicate what get_database_overview prints, but return JSON
@@ -123,7 +137,8 @@ def overview() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.get("/tables")
+if FastAPI:
+	@app.get("/tables")
 def list_tables() -> List[Dict[str, str]]:
     ensure_connected()
     try:
@@ -133,7 +148,8 @@ def list_tables() -> List[Dict[str, str]]:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.get("/views")
+if FastAPI:
+	@app.get("/views")
 def list_views() -> List[Dict[str, str]]:
     ensure_connected()
     try:
@@ -143,7 +159,8 @@ def list_views() -> List[Dict[str, str]]:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.post("/table/details")
+if FastAPI:
+	@app.post("/table/details")
 def table_details(ref: TableRef) -> Dict[str, Any]:
     ensure_connected()
     try:
@@ -163,7 +180,8 @@ def table_details(ref: TableRef) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.post("/table/indexes")
+if FastAPI:
+	@app.post("/table/indexes")
 def table_indexes(ref: TableRef) -> Dict[str, Any]:
     ensure_connected()
     try:
@@ -247,7 +265,8 @@ def table_indexes(ref: TableRef) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.post("/table/duplicates")
+if FastAPI:
+	@app.post("/table/duplicates")
 def table_duplicates(ref: TableRef) -> Dict[str, Any]:
     ensure_connected()
     try:
@@ -267,7 +286,8 @@ def table_duplicates(ref: TableRef) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.post("/column/search")
+if FastAPI:
+	@app.post("/column/search")
 def column_search(req: ColumnSearchRequest) -> Dict[str, Any]:
     ensure_connected()
     try:
@@ -287,7 +307,8 @@ def column_search(req: ColumnSearchRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.post("/view/hierarchy")
+if FastAPI:
+	@app.post("/view/hierarchy")
 def view_hierarchy(view: ViewRef) -> Dict[str, Any]:
     ensure_connected()
     try:
@@ -297,8 +318,38 @@ def view_hierarchy(view: ViewRef) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.on_event("shutdown")
+if FastAPI:
+	@app.on_event("shutdown")
 def shutdown_event() -> None:
+if not FastAPI:
+	# Minimal fallback server with stdlib only (for environments where FastAPI cannot be installed)
+	# Supports only GET /health to help the frontend detect backend status.
+	import json
+	from http.server import BaseHTTPRequestHandler, HTTPServer
+
+	class SimpleHandler(BaseHTTPRequestHandler):
+		def _send(self, code: int, payload: Dict[str, Any]):
+			body = json.dumps(payload).encode()
+			self.send_response(code)
+			self.send_header("Content-Type", "application/json")
+			self.send_header("Content-Length", str(len(body)))
+			self.end_headers()
+			self.wfile.write(body)
+
+		def do_GET(self):
+			if self.path == "/health":
+				self._send(200, {"status": "ok", "message": "FastAPI not available; running fallback server"})
+			else:
+				self._send(404, {"error": "Not Found"})
+
+	def run_simple(host: str = "0.0.0.0", port: int = 8000):
+		server = HTTPServer((host, port), SimpleHandler)
+		print(f"Fallback server listening on http://{host}:{port}")
+		server.serve_forever()
+
+	if __name__ == "__main__":
+		run_simple()
+
     global analyzer
     try:
         if analyzer is not None:

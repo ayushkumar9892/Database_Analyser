@@ -4,12 +4,32 @@ from typing import List, Dict, Optional, Tuple, Set
 from difflib import SequenceMatcher
 import re
 import datetime
-import openpyxl
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
-import psycopg2
-import pyodbc
-import mysql.connector
+
+# Optional dependencies: make imports lazy-friendly so API can start without them
+try:
+	import openpyxl  # type: ignore
+	from openpyxl import Workbook  # type: ignore
+	from openpyxl.styles import Font, PatternFill, Alignment  # type: ignore
+except Exception:  # pragma: no cover
+	openpyxl = None  # type: ignore
+	Workbook = None  # type: ignore
+	Font = PatternFill = Alignment = None  # type: ignore
+
+try:
+	import psycopg2  # type: ignore
+except Exception:  # pragma: no cover
+	psycopg2 = None  # type: ignore
+
+try:
+	import pyodbc  # type: ignore
+except Exception:  # pragma: no cover
+	pyodbc = None  # type: ignore
+
+try:
+	import mysql.connector as mysql_connector  # type: ignore
+except Exception:  # pragma: no cover
+	mysql_connector = None  # type: ignore
+
 import re
 
 
@@ -75,8 +95,10 @@ class DatabaseAnalyzer:
             self.db_type = db_type
             
             if db_type == "postgresql":
-                
-                self.conn = psycopg2.connect(
+				# Ensure driver is available
+				if psycopg2 is None:
+					raise ImportError("psycopg2-binary not installed")
+				self.conn = psycopg2.connect(
                     host=params['host'],
                     port=params['port'],
                     dbname=params['database'],
@@ -86,7 +108,9 @@ class DatabaseAnalyzer:
                 )
                 
             elif db_type == "sqlserver":
-                
+				# Ensure driver is available
+				if pyodbc is None:
+					raise ImportError("pyodbc not installed")
                 if params.get('trusted_connection', False):
                     conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={params['server']};DATABASE={params['database']};Trusted_Connection=yes;"
                 elif 'server' in params:
@@ -97,8 +121,10 @@ class DatabaseAnalyzer:
                 self.conn = pyodbc.connect(conn_str, timeout=10)
                 
             elif db_type == "mysql":
-                
-                self.conn = mysql.connector.connect(
+				# Ensure driver is available
+				if mysql_connector is None:
+					raise ImportError("mysql-connector-python not installed")
+				self.conn = mysql_connector.connect(
                     host=params['host'],
                     port=params['port'],
                     database=params['database'],
